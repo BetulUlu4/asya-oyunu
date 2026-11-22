@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asya Siyasi Haritasını Öğren</title>
+    <title>Asya Haritası ve Başkentler Oyunu</title>
     <!-- Konfeti Efekti Kütüphanesi -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <!-- Harita Verisi Çözümleyici (TopoJSON) -->
@@ -60,6 +60,7 @@
             cursor: pointer;
             box-shadow: 0 6px 15px rgba(0,0,0,0.3);
             transition: transform 0.2s, background-color 0.2s;
+            margin: 10px;
         }
 
         .btn:hover {
@@ -67,7 +68,14 @@
             transform: scale(1.05);
         }
 
-        /* OYUN EKRANI (Deniz ve Okyanus Mavisi) */
+        .btn-secondary {
+            background-color: #e67e22;
+        }
+        .btn-secondary:hover {
+            background-color: #d35400;
+        }
+
+        /* OYUN EKRANI */
         #game-screen {
             width: 100%;
             height: 100%;
@@ -86,7 +94,6 @@
             height: 100%;
         }
 
-        /* Ülkelerin varsayılan beyaz rengi */
         .country {
             fill: #ffffff;
             stroke: #7f8c8d;
@@ -99,7 +106,6 @@
             fill: #ecf0f1;
         }
 
-        /* Asya dışı ülkeler */
         .other-country {
             fill: #d5dbdb;
             stroke: #bdc3c7;
@@ -137,7 +143,7 @@
             fill: #ffffff;
         }
 
-        /* ALT KISIMDA SORULAN ÜLKE VE BAYRAĞI */
+        /* 1. MOD: ALT KISIMDA SORULAN ÜLKE VE BAYRAĞI */
         #question-box {
             position: absolute;
             bottom: 30px;
@@ -167,6 +173,64 @@
             border-radius: 4px;
         }
 
+        /* 2. MOD: BAŞKENT SORULARI İÇİN ÜST VE ALT KUTULAR */
+        #capital-top-box {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            padding: 12px 30px;
+            border-radius: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: none;
+            align-items: center;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        #capital-top-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        #capital-top-flag {
+            width: 40px;
+            height: 26px;
+            object-fit: cover;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+
+        #capital-options-box {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .capital-btn {
+            padding: 12px 25px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            background-color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+
+        .capital-btn:hover {
+            background-color: #f1f2f6;
+            transform: scale(1.05);
+        }
+
         /* BİTİŞ EKRANLARI */
         .end-overlay {
             position: absolute;
@@ -181,12 +245,20 @@
             align-items: center;
             z-index: 200;
             color: white;
+            text-align: center;
         }
 
         .end-overlay h1 {
-            font-size: 5rem;
-            margin-bottom: 30px;
+            font-size: 4rem;
+            margin-bottom: 20px;
             letter-spacing: 3px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         #win-screen h1 { color: #f1c40f; text-shadow: 0 0 20px rgba(241, 196, 15, 0.8); }
@@ -198,76 +270,89 @@
     <!-- 1. GİRİŞ EKRANI -->
     <div id="start-screen">
         <h1>Asya Siyasi Haritasını Öğren</h1>
-        <button class="btn" onclick="startGame()">Hadi Başlayalım</button>
+        <button class="btn" onclick="startMode1()">Hadi Başlayalım</button>
     </div>
 
     <!-- 2. OYUN EKRANI -->
     <div id="game-screen">
         <div id="map-container"></div>
         <div id="hearts-container"></div>
+        
+        <!-- Mod 1 Arayüzü -->
         <div id="question-box">
             <span id="country-name">Yükleniyor...</span>
             <img id="country-flag" src="" alt="Bayrak">
         </div>
+
+        <!-- Mod 2 Arayüzü -->
+        <div id="capital-top-box">
+            <span id="capital-top-name">Ülke Adı</span>
+            <img id="capital-top-flag" src="" alt="Bayrak">
+        </div>
+        <div id="capital-options-box"></div>
     </div>
 
     <!-- 3. KAZANMA EKRANI -->
     <div id="win-screen" class="end-overlay">
         <h1>TEBRİKLER</h1>
-        <button class="btn" onclick="resetGame()">Tekrar Oyna</button>
+        <div class="button-group" id="win-buttons">
+            <!-- Dinamik olarak doldurulacak -->
+        </div>
     </div>
 
     <!-- 4. KAYBETME EKRANI -->
     <div id="lose-screen" class="end-overlay">
         <h1>KAYBETTİNİZ</h1>
-        <button class="btn" style="background-color: #e74c3c;" onclick="resetGame()">Tekrar Dene</button>
+        <button class="btn" style="background-color: #e74c3c;" onclick="restartCurrentMode()">Tekrar Dene</button>
     </div>
 
     <script>
         const asianCountries = [
-            { id: "792", name: "Türkiye", code: "tr" },
-            { id: "398", name: "Kazakistan", code: "kz" },
-            { id: "156", name: "Çin", code: "cn" },
-            { id: "356", name: "Hindistan", code: "in" },
-            { id: "392", name: "Japonya", code: "jp" },
-            { id: "410", name: "Güney Kore", code: "kr" },
-            { id: "408", name: "Kuzey Kore", code: "kp" },
-            { id: "496", name: "Moğolistan", code: "mn" },
-            { id: "682", name: "Suudi Arabistan", code: "sa" },
-            { id: "364", name: "İran", code: "ir" },
-            { id: "368", name: "Irak", code: "iq" },
-            { id: "760", name: "Suriye", code: "sy" },
-            { id: "400", name: "Ürdün", code: "jo" },
-            { id: "887", name: "Yemen", code: "ye" },
-            { id: "512", name: "Umman", code: "om" },
-            { id: "784", name: "Birleşik Arap Emirlikleri", code: "ae" },
-            { id: "004", name: "Afganistan", code: "af" },
-            { id: "586", name: "Pakistan", code: "pk" },
-            { id: "860", name: "Özbekistan", code: "uz" },
-            { id: "795", name: "Türkmenistan", code: "tm" },
-            { id: "417", name: "Kırgızistan", code: "kg" },
-            { id: "762", name: "Tacikistan", code: "tj" },
-            { id: "764", name: "Tayland", code: "th" },
-            { id: "704", name: "Vietnam", code: "vn" },
-            { id: "458", name: "Malezya", code: "my" },
-            { id: "360", name: "Endonezya", code: "id" },
-            { id: "608", name: "Filipinler", code: "ph" },
-            { id: "104", name: "Myanmar", code: "mm" },
-            { id: "524", name: "Nepal", code: "np" },
-            { id: "050", name: "Bangladeş", code: "bd" },
-            { id: "144", name: "Sri Lanka", code: "lk" },
-            { id: "031", name: "Azerbaycan", code: "az" },
-            { id: "268", name: "Gürcistan", code: "ge" },
-            { id: "051", name: "Ermenistan", code: "am" },
-            { id: "116", name: "Kamboçya", code: "kh" },
-            { id: "418", name: "Laos", code: "la" }
+            { id: "792", name: "Türkiye", code: "tr", capital: "Ankara" },
+            { id: "398", name: "Kazakistan", code: "kz", capital: "Astana" },
+            { id: "156", name: "Çin", code: "cn", capital: "Pekin" },
+            { id: "356", name: "Hindistan", code: "in", capital: "Yeni Delhi" },
+            { id: "392", name: "Japonya", code: "jp", capital: "Tokyo" },
+            { id: "410", name: "Güney Kore", code: "kr", capital: "Seul" },
+            { id: "408", name: "Kuzey Kore", code: "kp", capital: "Pyongyang" },
+            { id: "496", name: "Moğolistan", code: "mn", capital: "Ulanbatur" },
+            { id: "682", name: "Suudi Arabistan", code: "sa", capital: "Riyad" },
+            { id: "364", name: "İran", code: "ir", capital: "Tahran" },
+            { id: "368", name: "Irak", code: "iq", capital: "Bağdat" },
+            { id: "760", name: "Suriye", code: "sy", capital: "Şam" },
+            { id: "400", name: "Ürdün", code: "jo", capital: "Amman" },
+            { id: "887", name: "Yemen", code: "ye", capital: "Sana" },
+            { id: "512", name: "Umman", code: "om", capital: "Maskat" },
+            { id: "784", name: "Birleşik Arap Emirlikleri", code: "ae", capital: "Abu Dabi" },
+            { id: "004", name: "Afganistan", code: "af", capital: "Kabil" },
+            { id: "586", name: "Pakistan", code: "pk", capital: "İslamabad" },
+            { id: "860", name: "Özbekistan", code: "uz", capital: "Taşkent" },
+            { id: "795", name: "Türkmenistan", code: "tm", capital: "Aşkabat" },
+            { id: "417", name: "Kırgızistan", code: "kg", capital: "Bişkek" },
+            { id: "762", name: "Tacikistan", code: "tj", capital: "Duşanbe" },
+            { id: "764", name: "Tayland", code: "th", capital: "Bangkok" },
+            { id: "704", name: "Vietnam", code: "vn", capital: "Hanoi" },
+            { id: "458", name: "Malezya", code: "my", capital: "Kuala Lumpur" },
+            { id: "360", name: "Endonezya", code: "id", capital: "Cakarta" },
+            { id: "608", name: "Filipinler", code: "ph", capital: "Manila" },
+            { id: "104", name: "Myanmar", code: "mm", capital: "Naypyidaw" },
+            { id: "524", name: "Nepal", code: "np", capital: "Katmandu" },
+            { id: "050", name: "Bangladeş", code: "bd", capital: "Dakka" },
+            { id: "144", name: "Sri Lanka", code: "lk", capital: "Kolombo" },
+            { id: "031", name: "Azerbaycan", code: "az", capital: "Bakü" },
+            { id: "268", name: "Gürcistan", code: "ge", capital: "Tiflis" },
+            { id: "051", name: "Ermenistan", code: "am", capital: "Erivan" },
+            { id: "116", name: "Kamboçya", code: "kh", capital: "Phnom Penh" },
+            { id: "418", name: "Laos", code: "la", capital: "Vientiane" }
         ];
 
+        let currentMode = 1; // 1: Siyasi Harita, 2: Başkentler
         let remainingCountries = [];
         let currentCountry = null;
         let lives = 5;
         let isLocked = false;
         let completedIds = new Set();
+        let mapLoaded = false;
 
         const pixelHeartSVG = `
             <svg class="pixel-heart" viewBox="0 0 16 16">
@@ -296,6 +381,7 @@
         }
 
         async function loadMap() {
+            if (mapLoaded) return;
             const width = window.innerWidth;
             const height = window.innerHeight;
 
@@ -328,11 +414,37 @@
                         handleCountryClick(clickedId, this);
                     }
                 });
+            mapLoaded = true;
         }
 
-        function startGame() {
+        function startMode1() {
+            currentMode = 1;
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('win-screen').style.display = 'none';
+            document.getElementById('lose-screen').style.display = 'none';
+            
+            document.getElementById('question-box').style.display = 'flex';
+            document.getElementById('capital-top-box').style.display = 'none';
+            document.getElementById('capital-options-box').style.display = 'none';
+
+            initHearts();
+            loadMap().then(() => {
+                startNewSession();
+            });
+        }
+
+        function startMode2() {
+            currentMode = 2;
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('win-screen').style.display = 'none';
+            document.getElementById('lose-screen').style.display = 'none';
+            
+            document.getElementById('question-box').style.display = 'none';
+            document.getElementById('capital-top-box').style.display = 'flex';
+            document.getElementById('capital-options-box').style.display = 'flex';
+
             initHearts();
             loadMap().then(() => {
                 startNewSession();
@@ -350,14 +462,57 @@
             nextQuestion();
         }
 
+        function restartCurrentMode() {
+            document.getElementById('lose-screen').style.display = 'none';
+            document.getElementById('win-screen').style.display = 'none';
+            startNewSession();
+        }
+
         function nextQuestion() {
             if (remainingCountries.length === 0) {
                 winGame();
                 return;
             }
             currentCountry = remainingCountries.pop();
-            document.getElementById('country-name').innerText = currentCountry.name;
-            document.getElementById('country-flag').src = `https://flagcdn.com/w80/${currentCountry.code}.png`;
+
+            if (currentMode === 1) {
+                document.getElementById('country-name').innerText = currentCountry.name;
+                document.getElementById('country-flag').src = `https://flagcdn.com/w80/${currentCountry.code}.png`;
+            } else {
+                // Mod 2: Haritada ülkeyi boya ve üstte göster, altta 4 başkent şıkkı ver
+                d3.selectAll(".country").style("fill", "#ffffff");
+                completedIds.forEach(id => {
+                    d3.select("#country-" + id).style("fill", "#f1c40f");
+                });
+                d3.select("#country-" + currentCountry.id).style("fill", "#3498db"); // Seçilen aktif ülke
+
+                document.getElementById('capital-top-name').innerText = currentCountry.name;
+                document.getElementById('capital-top-flag').src = `https://flagcdn.com/w80/${currentCountry.code}.png`;
+
+                setupCapitalOptions();
+            }
+        }
+
+        function setupCapitalOptions() {
+            const optionsBox = document.getElementById('capital-options-box');
+            optionsBox.innerHTML = '';
+
+            // Doğru başkent + 3 yanlış rastgele başkent seç
+            let wrongCapitals = asianCountries
+                .filter(c => c.id !== currentCountry.id)
+                .map(c => c.capital)
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 3);
+
+            let choices = [...wrongCapitals, currentCountry.capital].sort(() => Math.random() - 0.5);
+
+            choices.forEach(capital => {
+                const btn = document.createElement('button');
+                btn.className = 'capital-btn';
+                btn.innerText = capital;
+                btn.onclick = () => handleCapitalClick(capital, btn);
+                optionsBox.appendChild(btn);
+            });
         }
 
         function handleCountryClick(clickedId, element) {
@@ -368,32 +523,86 @@
             if (clickedId === currentCountry.id) {
                 isLocked = true;
                 completedIds.add(clickedId);
-                el.style("fill", "#2ecc71");
+                el.style("fill", "#2ecc71"); // Yeşil
 
                 setTimeout(() => {
-                    el.style("fill", "#f1c40f");
+                    el.style("fill", "#f1c40f"); // Sarı
                     isLocked = false;
                     nextQuestion();
-                }, 3000);
+                }, 1000); // 1 saniye bekleme
             } else {
                 isLocked = true;
                 lives--;
                 updateHearts();
-                el.style("fill", "#e74c3c");
+                el.style("fill", "#e74c3c"); // Kırmızı
 
                 setTimeout(() => {
-                    el.style("fill", "#ffffff");
+                    el.style("fill", "#ffffff"); // Beyaz
                     isLocked = false;
 
                     if (lives <= 0) {
                         loseGame();
                     }
-                }, 3000);
+                }, 1000); // 1 saniye bekleme
+            }
+        }
+
+        function handleCapitalClick(selectedCapital, btnElement) {
+            if (isLocked) return;
+
+            if (selectedCapital === currentCountry.capital) {
+                isLocked = true;
+                completedIds.add(currentCountry.id);
+                d3.select("#country-" + currentCountry.id).style("fill", "#2ecc71");
+                btnElement.style.backgroundColor = "#2ecc71";
+                btnElement.style.color = "white";
+
+                setTimeout(() => {
+                    d3.select("#country-" + currentCountry.id).style("fill", "#f1c40f");
+                    isLocked = false;
+                    nextQuestion();
+                }, 1000);
+            } else {
+                isLocked = true;
+                lives--;
+                updateHearts();
+                btnElement.style.backgroundColor = "#e74c3c";
+                btnElement.style.color = "white";
+                
+                const activeEl = d3.select("#country-" + currentCountry.id);
+                activeEl.style("fill", "#e74c3c");
+
+                setTimeout(() => {
+                    activeEl.style("fill", "#3498db");
+                    isLocked = false;
+
+                    if (lives <= 0) {
+                        loseGame();
+                    } else {
+                        setupCapitalOptions(); // Şıkları yenile
+                    }
+                }, 1000);
             }
         }
 
         function winGame() {
-            document.getElementById('win-screen').style.display = 'flex';
+            const winScreen = document.getElementById('win-screen');
+            const winButtons = document.getElementById('win-buttons');
+            winButtons.innerHTML = '';
+
+            if (currentMode === 1) {
+                winButtons.innerHTML = `
+                    <button class="btn" onclick="startMode1()">Tekrar Oyna</button>
+                    <button class="btn btn-secondary" onclick="startMode2()">Başkentleri Öğrenelim</button>
+                `;
+            } else {
+                winButtons.innerHTML = `
+                    <button class="btn" onclick="startMode1()">Siyasi Haritayı Öğren</button>
+                    <button class="btn btn-secondary" onclick="startMode2()">Tekrar Oyna</button>
+                `;
+            }
+
+            winScreen.style.display = 'flex';
             confetti({
                 particleCount: 180,
                 spread: 90,
@@ -403,12 +612,6 @@
 
         function loseGame() {
             document.getElementById('lose-screen').style.display = 'flex';
-        }
-
-        function resetGame() {
-            document.getElementById('win-screen').style.display = 'none';
-            document.getElementById('lose-screen').style.display = 'none';
-            startNewSession();
         }
     </script>
 </body>
