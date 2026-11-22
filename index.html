@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asya Siyasi Haritasını Öğren</title>
+    <!-- Konfeti Efekti Kütüphanesi -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Harita Verisi Çözümleyici (TopoJSON) -->
+    <script src="https://unpkg.com/topojson-client@3"></script>
+    <!-- D3.js Harita Çizim Kütüphanesi -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* GİRİŞ EKRANI */
+        #start-screen {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e3799, #0984e3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+
+        #start-screen h1 {
+            font-size: 3.5rem;
+            text-shadow: 3px 3px 10px rgba(0,0,0,0.4);
+            margin-bottom: 30px;
+            letter-spacing: 1px;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            background-color: #2ecc71;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #27ae60;
+            transform: scale(1.05);
+        }
+
+        /* OYUN EKRANI (Deniz ve Okyanus Mavisi) */
+        #game-screen {
+            width: 100%;
+            height: 100%;
+            background-color: #3498db;
+            display: none;
+            position: relative;
+        }
+
+        #map-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Ülkelerin varsayılan beyaz rengi */
+        .country {
+            fill: #ffffff;
+            stroke: #7f8c8d;
+            stroke-width: 0.8px;
+            cursor: pointer;
+            transition: fill 0.2s;
+        }
+
+        .country:hover {
+            fill: #ecf0f1;
+        }
+
+        /* Asya dışı ülkeler */
+        .other-country {
+            fill: #d5dbdb;
+            stroke: #bdc3c7;
+            stroke-width: 0.5px;
+            pointer-events: none;
+        }
+
+        /* SAĞ KENAR PİKSELLİ KALPLER */
+        #hearts-container {
+            position: absolute;
+            right: 25px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: row;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.25);
+            padding: 10px 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(4px);
+            z-index: 10;
+        }
+
+        .pixel-heart {
+            width: 28px;
+            height: 28px;
+        }
+
+        .pixel-heart .heart-fill {
+            fill: #e74c3c;
+            transition: fill 0.3s;
+        }
+
+        .pixel-heart.lost .heart-fill {
+            fill: #ffffff;
+        }
+
+        /* ALT KISIMDA SORULAN ÜLKE VE BAYRAĞI */
+        #question-box {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            padding: 15px 35px;
+            border-radius: 50px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        #country-name {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        #country-flag {
+            width: 45px;
+            height: 30px;
+            object-fit: cover;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* BİTİŞ EKRANLARI */
+        .end-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            color: white;
+        }
+
+        .end-overlay h1 {
+            font-size: 5rem;
+            margin-bottom: 30px;
+            letter-spacing: 3px;
+        }
+
+        #win-screen h1 { color: #f1c40f; text-shadow: 0 0 20px rgba(241, 196, 15, 0.8); }
+        #lose-screen h1 { color: #e74c3c; text-shadow: 0 0 20px rgba(231, 76, 60, 0.8); }
+    </style>
+</head>
+<body>
+
+    <!-- 1. GİRİŞ EKRANI -->
+    <div id="start-screen">
+        <h1>Asya Siyasi Haritasını Öğren</h1>
+        <button class="btn" onclick="startGame()">Hadi Başlayalım</button>
+    </div>
+
+    <!-- 2. OYUN EKRANI -->
+    <div id="game-screen">
+        <div id="map-container"></div>
+        <div id="hearts-container"></div>
+        <div id="question-box">
+            <span id="country-name">Yükleniyor...</span>
+            <img id="country-flag" src="" alt="Bayrak">
+        </div>
+    </div>
+
+    <!-- 3. KAZANMA EKRANI -->
+    <div id="win-screen" class="end-overlay">
+        <h1>TEBRİKLER</h1>
+        <button class="btn" onclick="resetGame()">Tekrar Oyna</button>
+    </div>
+
+    <!-- 4. KAYBETME EKRANI -->
+    <div id="lose-screen" class="end-overlay">
+        <h1>KAYBETTİNİZ</h1>
+        <button class="btn" style="background-color: #e74c3c;" onclick="resetGame()">Tekrar Dene</button>
+    </div>
+
+    <script>
+        const asianCountries = [
+            { id: "792", name: "Türkiye", code: "tr" },
+            { id: "398", name: "Kazakistan", code: "kz" },
+            { id: "156", name: "Çin", code: "cn" },
+            { id: "356", name: "Hindistan", code: "in" },
+            { id: "392", name: "Japonya", code: "jp" },
+            { id: "410", name: "Güney Kore", code: "kr" },
+            { id: "408", name: "Kuzey Kore", code: "kp" },
+            { id: "496", name: "Moğolistan", code: "mn" },
+            { id: "682", name: "Suudi Arabistan", code: "sa" },
+            { id: "364", name: "İran", code: "ir" },
+            { id: "368", name: "Irak", code: "iq" },
+            { id: "760", name: "Suriye", code: "sy" },
+            { id: "400", name: "Ürdün", code: "jo" },
+            { id: "887", name: "Yemen", code: "ye" },
+            { id: "512", name: "Umman", code: "om" },
+            { id: "784", name: "Birleşik Arap Emirlikleri", code: "ae" },
+            { id: "004", name: "Afganistan", code: "af" },
+            { id: "586", name: "Pakistan", code: "pk" },
+            { id: "860", name: "Özbekistan", code: "uz" },
+            { id: "795", name: "Türkmenistan", code: "tm" },
+            { id: "417", name: "Kırgızistan", code: "kg" },
+            { id: "762", name: "Tacikistan", code: "tj" },
+            { id: "764", name: "Tayland", code: "th" },
+            { id: "704", name: "Vietnam", code: "vn" },
+            { id: "458", name: "Malezya", code: "my" },
+            { id: "360", name: "Endonezya", code: "id" },
+            { id: "608", name: "Filipinler", code: "ph" },
+            { id: "104", name: "Myanmar", code: "mm" },
+            { id: "524", name: "Nepal", code: "np" },
+            { id: "050", name: "Bangladeş", code: "bd" },
+            { id: "144", name: "Sri Lanka", code: "lk" },
+            { id: "031", name: "Azerbaycan", code: "az" },
+            { id: "268", name: "Gürcistan", code: "ge" },
+            { id: "051", name: "Ermenistan", code: "am" },
+            { id: "116", name: "Kamboçya", code: "kh" },
+            { id: "418", name: "Laos", code: "la" }
+        ];
+
+        let remainingCountries = [];
+        let currentCountry = null;
+        let lives = 5;
+        let isLocked = false;
+        let completedIds = new Set();
+
+        const pixelHeartSVG = `
+            <svg class="pixel-heart" viewBox="0 0 16 16">
+                <path fill="#000" d="M2 2h3v1h1v1h1v1h2V4h1V3h1V2h3v1h1v1h1v4h-1v2h-1v1h-1v1h-1v1h-1v1H9v1H7v-1H6v-1H5v-1H4v-1H3v-1H2V8H1V4h1V3h1V2z"/>
+                <path class="heart-fill" d="M3 3h2v1h1v1h1v1h2V5h1V4h1V3h2v1h1v4h-1v2h-1v1h-1v1h-1v1H9v1H7v-1H6v-1H5v-1H4v-1H3v-2H2V4h1V3z"/>
+            </svg>
+        `;
+
+        function initHearts() {
+            const container = document.getElementById('hearts-container');
+            container.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                container.innerHTML += pixelHeartSVG;
+            }
+        }
+
+        function updateHearts() {
+            const hearts = document.querySelectorAll('.pixel-heart');
+            hearts.forEach((heart, index) => {
+                if (index >= lives) {
+                    heart.classList.add('lost');
+                } else {
+                    heart.classList.remove('lost');
+                }
+            });
+        }
+
+        async function loadMap() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            const svg = d3.select("#map-container")
+                .append("svg")
+                .attr("viewBox", `0 0 ${width} ${height}`);
+
+            const projection = d3.geoMercator()
+                .center([90, 32])
+                .scale(width / 2.3)
+                .translate([width / 2, height / 2]);
+
+            const path = d3.geoPath().projection(projection);
+
+            const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+            const countries = topojson.feature(world, world.objects.countries).features;
+
+            const asianIds = new Set(asianCountries.map(c => c.id));
+
+            svg.selectAll("path")
+                .data(countries)
+                .enter()
+                .append("path")
+                .attr("d", path)
+                .attr("id", d => "country-" + d.id)
+                .attr("class", d => asianIds.has(String(d.id).padStart(3, '0')) ? "country" : "other-country")
+                .on("click", function(event, d) {
+                    const clickedId = String(d.id).padStart(3, '0');
+                    if (asianIds.has(clickedId)) {
+                        handleCountryClick(clickedId, this);
+                    }
+                });
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            initHearts();
+            loadMap().then(() => {
+                startNewSession();
+            });
+        }
+
+        function startNewSession() {
+            lives = 5;
+            isLocked = false;
+            completedIds.clear();
+            updateHearts();
+
+            d3.selectAll(".country").style("fill", "#ffffff");
+            remainingCountries = [...asianCountries].sort(() => Math.random() - 0.5);
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            if (remainingCountries.length === 0) {
+                winGame();
+                return;
+            }
+            currentCountry = remainingCountries.pop();
+            document.getElementById('country-name').innerText = currentCountry.name;
+            document.getElementById('country-flag').src = `https://flagcdn.com/w80/${currentCountry.code}.png`;
+        }
+
+        function handleCountryClick(clickedId, element) {
+            if (isLocked || completedIds.has(clickedId)) return;
+
+            const el = d3.select(element);
+
+            if (clickedId === currentCountry.id) {
+                isLocked = true;
+                completedIds.add(clickedId);
+                el.style("fill", "#2ecc71");
+
+                setTimeout(() => {
+                    el.style("fill", "#f1c40f");
+                    isLocked = false;
+                    nextQuestion();
+                }, 3000);
+            } else {
+                isLocked = true;
+                lives--;
+                updateHearts();
+                el.style("fill", "#e74c3c");
+
+                setTimeout(() => {
+                    el.style("fill", "#ffffff");
+                    isLocked = false;
+
+                    if (lives <= 0) {
+                        loseGame();
+                    }
+                }, 3000);
+            }
+        }
+
+        function winGame() {
+            document.getElementById('win-screen').style.display = 'flex';
+            confetti({
+                particleCount: 180,
+                spread: 90,
+                origin: { y: 0.6 }
+            });
+        }
+
+        function loseGame() {
+            document.getElementById('lose-screen').style.display = 'flex';
+        }
+
+        function resetGame() {
+            document.getElementById('win-screen').style.display = 'none';
+            document.getElementById('lose-screen').style.display = 'none';
+            startNewSession();
+        }
+    </script>
+</body>
+</html>
